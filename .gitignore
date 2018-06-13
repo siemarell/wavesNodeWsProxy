@@ -114,16 +114,9 @@ typings/
 
 # next.js build output
 .next
-.gitignore
 .idea/inspectionProfiles/
 .idea/jsLibraryMappings.xml
 .idea/misc.xml
 .idea/modules.xml
 .idea/waveswsservice.iml
-app.js
-commands.js
-config.json
-eventStreams.js
-package-lock.json
-package.json
-pollerService.js
+
