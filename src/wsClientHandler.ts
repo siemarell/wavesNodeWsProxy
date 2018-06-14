@@ -38,19 +38,10 @@ export class WSClientHandler {
     }
 
     private async removeSubscription(channel: string) {
-        if (channel === 'all') {
-            this.subscriptions.forEach(async v => {
-                v.unsubscribe();
-                await db.deleteSubscription(this.id, channel)
-            });
-            this.subscriptions.clear()
-        }else {
-            const sub = this.subscriptions.get(channel);
-            if (sub != undefined) sub.unsubscribe();
-            this.subscriptions.delete(channel);
-            await db.deleteSubscription(this.id, channel)
-        }
-        this.sendMessage({status: "ok", op: `unsubscribe ${channel}`})
+        const sub = this.subscriptions.get(channel);
+        if (sub != undefined) sub.unsubscribe();
+        this.subscriptions.delete(channel);
+        await db.deleteSubscription(this.id, channel);
     }
 
     private sendMessage(obj: Object): void {
@@ -62,7 +53,14 @@ export class WSClientHandler {
             const command = parseCommand(msg);
             switch (command.type){
                 case CommandType.UNSUB:
-                    await this.removeSubscription(command.channel);
+                    if (command.channel === 'all'){
+                        for (let key of this.subscriptions.keys()){
+                            await this.removeSubscription(key)
+                        }
+                    }else {
+                        await this.removeSubscription(command.channel);
+                    }
+                    this.sendMessage({status: "ok", op: `unsubscribe ${command.channel}`});
                     break;
                 case CommandType.SUB:
                     await this.addSubscription(command.channel);
