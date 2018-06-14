@@ -19,7 +19,7 @@ export function parseCommand(msg: any): ClientCommand {
                 result.type = CommandType.UNSUB;
                 break;
             default:
-                result = {type: CommandType.WRONG, msg: msg}
+                result = {type: CommandType.BAD, msg: msg}
         }
 
         if (result.type == CommandType.SUB || result.type == CommandType.UNSUB){
@@ -27,13 +27,13 @@ export function parseCommand(msg: any): ClientCommand {
         }
     }
     catch (e) {
-        result = {type: CommandType.WRONG, msg: msg}
+        result = {type: CommandType.BAD, msg: msg}
     }
     return result;
 }
 
 export enum CommandType {
-    WRONG,
+    BAD,
     SUB,
     UNSUB,
     PING
