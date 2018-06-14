@@ -1,6 +1,5 @@
 import * as WebSocket from 'ws';
 import * as express from 'express'
-import {getSubscription} from './commands'
 import {Subscription} from "rxjs/internal/Subscription";
 import * as url from "url";
 import {Client} from "./client";

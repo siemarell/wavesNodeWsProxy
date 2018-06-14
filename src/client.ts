@@ -27,6 +27,11 @@ export class Client {
             if (sub != undefined) sub.unsubscribe();
             this.subscriptions.delete(channel);
         }
+        this.sendMessage({status: "ok", op: `unsubscribe ${channel}`})
+    }
+
+    private sendMessage(obj: Object): void {
+        this.ws.send(JSON.stringify(obj));
     }
 
     private listenForCommands(){
@@ -40,10 +45,10 @@ export class Client {
                     await this.addSubscription(command.channel);
                     break;
                 case CommandType.PING:
-                    this.ws.send({"op": "pong"})
+                    this.sendMessage({"op": "pong"});
                     break;
                 case CommandType.BAD:
-                    this.ws.send({"msg": "Bad Command", cmd: command.msg})
+                    this.sendMessage({"msg": "Bad Command", cmd: command.msg})
                     break;
             }
         });

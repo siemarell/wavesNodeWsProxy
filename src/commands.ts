@@ -6,8 +6,8 @@ import {map} from 'rxjs/operators';
 export function parseCommand(msg: any): ClientCommand {
     let result: ClientCommand;
     try {
-        const arr = msg.op.split(" ");
-
+        const msgJson = JSON.parse(msg);
+        const arr = msgJson.op.split(" ");
         switch (arr[0]) {
             case "ping":
                 result = {type: CommandType.PING, msg: msg};
