@@ -11,7 +11,9 @@ const wss = new WebSocket.Server({port: 40510});
 
 wss.on('connection', async (ws: WebSocket, req) =>{
     const { query: { token } } = url.parse(req.url, true);
-    const client = await WSClientHandler.getClient(ws, token.toString());
+    const client = new WSClientHandler(ws, token.toString());
+    await client.init();
+    console.log(`${token} init complete`)
     ws.on('close', () => client.destroy());
 });
 

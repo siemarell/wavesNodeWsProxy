@@ -13,10 +13,10 @@ export function parseCommand(msg: any): ClientCommand {
                 result = {type: CommandType.PING, msg: msg};
                 break;
             case "subscribe":
-                result.type = CommandType.SUB;
+                result = {type: CommandType.SUB, msg: msg};
                 break;
             case "unsubscribe":
-                result.type = CommandType.UNSUB;
+                result = {type: CommandType.UNSUB, msg: msg};
                 break;
             default:
                 result = {type: CommandType.BAD, msg: msg}
