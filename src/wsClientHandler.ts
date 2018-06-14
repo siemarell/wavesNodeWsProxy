@@ -1,17 +1,20 @@
 import {Subscription} from "rxjs/internal/Subscription";
 import * as WebSocket from 'ws';
 import {ClientCommand, CommandType, parseCommand} from "./commands";
+import uuid = require("uuid");
 
 
-export class Client {
+export class WSClientHandler {
     eventsStream: Subscription;
     private constructor(private id: string, private subscriptions: Map<string, Subscription>, private ws:WebSocket){
         this.listenForCommands();
     }
 
-    static async getClient(id: string, ws: WebSocket) {
+    static async getClient(ws: WebSocket, id?: string) {
+        id = id || uuid.v4();
         //await find client subscriptions in storage
-        return new Client(id, new Map<string, Subscription>(), ws)
+
+        return new WSClientHandler(id, new Map<string, Subscription>(), ws)
     }
 
     private async addSubscription(channel: string) {
