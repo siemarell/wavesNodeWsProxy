@@ -5,18 +5,21 @@ import {ClientCommand, CommandType, parseCommand} from "./commands";
 
 export class Client {
     eventsStream: Subscription;
-    private constructor(private id: string, private subscriptions: Array<Subscription>, private ws:WebSocket){
-
-        listenForCommans();
-
+    private constructor(private id: string, private subscriptions: {string?: Subscription}, private ws:WebSocket){
+        this.listenForCommands();
     }
 
     static async getClient(id: string, ws: WebSocket) {
         //await find client subscriptions in storage
-        return new Client(id, [], ws)
+        return new Client(id, {}, ws)
     }
-    private async addSubscription(channel: string) {}
+
+    private async addSubscription(channel: string) {
+
+    }
+
     private async removeSubscription(channel: string) {}
+
     private listenForCommands(){
         this.ws.on('message', async msg => {
             const command = parseCommand(msg);
@@ -34,17 +37,17 @@ export class Client {
                     this.ws.send({"msg": "Bad Command", cmd: command.msg})
                     break;
             }
-            const eventObservable = getSubscription(msg);
-            if(!eventObservable){
-               this.ws.send(`Bad command: ${msg}`)
-            }else{
-                this.ws.send(`Ok: ${msg}`);
-                const subscription = eventObservable.subscribe((x: string) => {console.log(x);ws.send(x)});
-                subscriptions.push(subscription);
-
-            }
         });
     }
+
     destroy(){}
 }
+const eventObservable = getSubscription(msg);
+if(!eventObservable){
+    this.ws.send(`Bad command: ${msg}`)
+}else{
+    this.ws.send(`Ok: ${msg}`);
+    const subscription = eventObservable.subscribe((x: string) => {console.log(x);ws.send(x)});
+    subscriptions.push(subscription);
 
+}

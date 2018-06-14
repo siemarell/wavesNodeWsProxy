@@ -12,12 +12,8 @@ const wss = new WebSocket.Server({port: 40510});
 
 wss.on('connection', async (ws: WebSocket, req) =>{
     const { query: { token } } = url.parse(req.url, true);
-    const client = await Client.getClient(token.toString(), ws)
-    client.eventsStream
-
-
-
-    ws.on('close', () => client.destroy())
+    const client = await Client.getClient(token.toString(), ws);
+    ws.on('close', () => client.destroy());
 });
 
 //app.listen(3000, () => console.log('Example app listening on port 3000!'));
