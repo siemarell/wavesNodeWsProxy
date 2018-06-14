@@ -1,30 +1,23 @@
-import {Server} from 'ws'
+import * as WebSocket from 'ws';
 import * as express from 'express'
 import {getSubscription} from './commands'
 import {Subscription} from "rxjs/internal/Subscription";
+import * as url from "url";
+import {Client} from "./client";
+import {async} from "rxjs/internal/scheduler/async";
 
-const app = express();
+//const app = express();
 
-const wss = new Server({port: 40510});
+const wss = new WebSocket.Server({port: 40510});
 
-wss.on('connection', ws =>{
-    let subscriptions: Array<Subscription> = [];
+wss.on('connection', async (ws: WebSocket, req) =>{
+    const { query: { token } } = url.parse(req.url, true);
+    const client = await Client.getClient(token.toString(), ws)
+    client.eventsStream
 
-    ws.on('message', msg => {
-        const eventObservable = getSubscription(msg);
-        if(!eventObservable){
-            ws.send(`Bad command: ${msg}`)
-        }else{
-            ws.send(`Ok: ${msg}`);
-            const subscription = eventObservable.subscribe((x: string) => {console.log(x);ws.send(x)});
-            subscriptions.push(subscription);
 
-        }
-    });
 
-    ws.on('close', ()=> subscriptions.forEach((sub: Subscription) => sub.unsubscribe()))
+    ws.on('close', () => client.destroy())
 });
 
-
-
-app.listen(3000, () => console.log('Example app listening on port 3000!'));
+//app.listen(3000, () => console.log('Example app listening on port 3000!'));
