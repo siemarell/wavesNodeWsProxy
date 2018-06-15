@@ -1,15 +1,10 @@
-import {interval} from "rxjs"
-import {Observable} from "rxjs/internal/Observable";
-import {map} from 'rxjs/operators';
-
-
 export interface ICommandParser {
-    parseCommand(msg: string): WSCommand
+    parseCommand(msg: string): IWSCommand
 }
 
 export const commandParser: ICommandParser = {
-    parseCommand(msg: any): WSCommand {
-        let result: WSCommand;
+    parseCommand(msg: any): IWSCommand {
+        let result: IWSCommand;
         try {
             const msgJson = JSON.parse(msg);
             const arr = msgJson.op.split(" ");
@@ -46,7 +41,19 @@ export enum CommandType {
     PING
 }
 
-export interface WSCommand {
+enum ChannelType {
+    TX,
+    UTX,
+    BLOCK,
+    ADDRESS,
+    BALANCE
+}
+export interface IChannel {
+    
+}
+
+
+export interface IWSCommand {
     type: CommandType,
     msg: string
     channel?: string

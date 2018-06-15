@@ -3,7 +3,7 @@ import * as WebSocket from 'ws';
 import {CommandType, ICommandParser, commandParser} from "./commandParser";
 import uuid = require("uuid");
 import * as db from './storage';
-import {getObservable} from './nodeObservables';
+import {getObservable} from './nodeProxy';
 import {Observer} from "rxjs/internal/types";
 
 
