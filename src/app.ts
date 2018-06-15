@@ -11,10 +11,10 @@ const wss = new WebSocket.Server({port: 40510});
 
 wss.on('connection', async (ws: WebSocket, req) =>{
     const { query: { token } } = url.parse(req.url, true);
-    const client = new WSClientHandler(ws, token.toString());
-    await client.init();
+    const handler = new WSClientHandler(ws, token.toString());
+    await handler.init();
     console.log(`${token} init complete`)
-    ws.on('close', () => client.destroy());
+    ws.on('close', () => handler.destroy());
 });
 
 //app.listen(3000, () => console.log('Example app listening on port 3000!'));

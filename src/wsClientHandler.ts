@@ -77,6 +77,10 @@ export class WSClientHandler {
         });
     }
 
-    destroy(){}
+    destroy(){
+        for (let sub of this.subscriptions.values()){
+            sub.unsubscribe()
+        }
+    }
 }
 

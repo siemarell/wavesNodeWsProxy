@@ -26,10 +26,14 @@ export async function getAllSubscriptions(clientId: string) {
 }
 
 export async function saveSubscription(clientId: string, channel: string){
-    await knex('client_subscriptions').insert({
-        client_uuid: clientId,
-        channel: channel
-    })
+    const exists = (await knex('client_subscriptions')
+        .where({client_uuid: clientId, channel: channel})).length > 0;
+    if (!exists){
+        await knex('client_subscriptions').insert({
+            client_uuid: clientId,
+            channel: channel
+        })
+    }
 }
 
 export async function deleteSubscription(clientId: string, channel: string){
