@@ -1,6 +1,6 @@
 import {Subscription} from "rxjs/internal/Subscription";
 import * as WebSocket from 'ws';
-import {ClientCommand, CommandType, parseCommand} from "./commands";
+import {CommandType, ICommandParser, commandParser} from "./commandParser";
 import uuid = require("uuid");
 import * as db from './storage';
 import {getObservable} from './nodeObservables';
@@ -9,6 +9,8 @@ import {Observer} from "rxjs/internal/types";
 
 export class WSClientHandler {
     private subscriptions: Map<string, Subscription> = new Map<string, Subscription>();
+
+    private parser: ICommandParser = commandParser;
 
     private observer: Observer<string> = {
         next: (value: string) => { this.sendMessage(value)},
@@ -49,8 +51,8 @@ export class WSClientHandler {
     }
 
     private listenForCommands(){
-        this.ws.on('message', async msg => {
-            const command = parseCommand(msg);
+        this.ws.on('message', async (msg: string) => {
+            const command = this.parser.parseCommand(msg);
             switch (command.type){
                 case CommandType.UNSUB:
                     if (command.channel === 'all'){
