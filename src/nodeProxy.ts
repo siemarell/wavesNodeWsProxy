@@ -1,5 +1,5 @@
 import {Observable} from "rxjs/internal/Observable";
-import {map} from "rxjs/operators";
+import {map, concatMap, combineAll} from "rxjs/operators";
 import {interval, Observer, Subject} from "rxjs/index";
 import * as request from 'request-promise'
 import {config as cfg} from './config';
@@ -30,23 +30,19 @@ class Synchronizer {
         subjects: []
     };
 
-    private _utxObs = Observable.create(async (obs: Observer<any>) => {
-        const loop = async ()=>{
-            if (obs.closed) return;
+    private _utxObs = interval(cfg.pollInterval).pipe(
+        concatMap(async()=>{
             const newUtxs = await this.getUTX();
-            newUtxs.forEach((utx: any) => {
+            return newUtxs.filter((utx: any) => {
                 if (utx.timestamp > this.storage.lastUtx) {
-                    console.dir(utx);
-                    obs.next(utx);
-                    this.storage.lastUtx = utx.timestamp
-                }
-            });
-            //await asleep(cfg.pollInterval);
-            setTimeout(async ()=> {await loop()}, cfg.pollInterval);
-        };
 
-        await loop();
-    });
+                    this.storage.lastUtx = utx.timestamp;
+                    return true
+                }
+                return false
+            });
+        })
+    )
 
     private async getUTX() {
         const options = {
