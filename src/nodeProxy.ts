@@ -10,7 +10,7 @@ export interface INodeProxy {
 }
 
 export class NodeProxy implements INodeProxy{
-    private utxPool: Map<string, {}> = new Map();
+    private utxPool: Map<string, {timesAbsent: number, utx: {}}> = new Map();
     private utxSubscription: Subscription;
     private readonly utxData: Subject<any> = new Subject<any>();
 
@@ -33,18 +33,26 @@ export class NodeProxy implements INodeProxy{
     }
 
     private _processUtxResponse = (utxs: Array<any>) => {
-        const updatedPool = new Map<string, {}>();
+        //const updatedPool = new Map<string, {}>();
 
         utxs.filter(utx => utx.type === 4)
             .forEach(utx =>{
                 if (!this.utxPool.has(utx.signature)){
                     console.log(utx);
                     this.utxData.next(utx);
+                    this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
+                }else {
+                    const temp = this.utxPool.get(utx.signature);
+                    temp.timesAbsent -=1;
+                    this.utxPool.set(utx.signature, temp);
                 }
-                updatedPool.set(utx.signature, utx)
             });
 
-        this.utxPool = updatedPool;
+        for (let key of this.utxPool.keys()){
+            let val = this.utxPool.get(key);
+            val.timesAbsent += 1;
+            if (val.timesAbsent > 10) this.utxPool.delete(key);
+        }
     };
 
     public getChannel(channelName: string){
