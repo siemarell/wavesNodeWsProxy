@@ -1,8 +1,7 @@
 import {Observable} from "rxjs/internal/Observable";
 import {map, concatMap, combineAll} from "rxjs/operators";
 import {interval, Observer, Subject} from "rxjs";
-import * as request from 'request-promise'
-import {config as cfg} from './config';
+import * as request from 'request-promise';
 import {asleep} from './utils'
 import {async} from "rxjs/internal/scheduler/async";
 
@@ -13,23 +12,25 @@ interface IStorage {
 }
 
 
-export function getObservable(channel: string): Observable<string> {
-    if (channel == 'utx') return sync.utxObs;
-    return interval(1000).pipe(map(x => `${channel} ${x.toString()}`))
+// export function getObservable(channel: string): Observable<string> {
+//     if (channel == 'utx') return sync.utxObs;
+//     return interval(1000).pipe(map(x => `${channel} ${x.toString()}`))
+// }
+
+export interface INodeProxy {
+    getChannel(channel: string): Observable<string>
 }
 
+export class NodeProxy implements INodeProxy{
+    constructor(private nodeUrl: string, private pollInterval: number){}
 
-class Synchronizer {
-    get utxObs(): Observable<any> {
-        return this._utxObs;
-    }
     storage: IStorage = {
         lastUtx: -1,
         addresses: [],
         subjects: []
     };
 
-    private _utxObs = interval(cfg.pollInterval).pipe(
+    private _utxObs = interval(this.pollInterval).pipe(
         concatMap(async()=>{
             const newUtxs = await this.getUTX();
             return newUtxs.filter((utx: any) => {
@@ -45,7 +46,7 @@ class Synchronizer {
 
     private async getUTX() {
         const options = {
-            uri: `${cfg.nodeAddress}/transactions/unconfirmed`,
+            uri: `${this.nodeUrl}/transactions/unconfirmed`,
             json: true
         };
         const resp = await request.get(options);
@@ -54,9 +55,14 @@ class Synchronizer {
         return resp.slice().sort((a: any, b: any) => a.timestamp - b.timestamp);
     }
 
-
+    getChannel(channelName: string){
+        if (channelName === 'utx'){
+            return <Observable<string>>this._utxObs
+        }
+        return new Observable<string>()
+    }
 }
 
-export const sync = new Synchronizer();
-// sync.utxObs.subscribe(x=> console.log(x))
-// setInterval(console.log, 3000, "1")
+const proxy = new NodeProxy("https://nodes.wavesplatform.com", 3000);
+proxy.getChannel('utx').subscribe(x=> console.log(x))
+setInterval(console.log, 3000, "1")

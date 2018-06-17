@@ -1,4 +1,5 @@
 export const config = {
-    nodeAddress: "https://nodes.wavesplatform.com",
+    appPort: 40510,
+    nodeUrl: "https://nodes.wavesplatform.com",
     pollInterval: 3000
-}
+};

@@ -3,7 +3,7 @@ import * as WebSocket from 'ws';
 import {CommandType, ICommandParser, commandParser} from "./commandParser";
 import uuid = require("uuid");
 import * as db from './storage';
-import {getObservable} from './nodeProxy';
+import {INodeProxy} from './nodeProxy';
 import {Observer} from "rxjs/internal/types";
 
 
@@ -18,7 +18,7 @@ export class WSClientHandler {
         complete: () => {}
     };
 
-    constructor(private ws:WebSocket, readonly id?: string){
+    constructor(private ws:WebSocket, private nodeProxy: INodeProxy, readonly id?: string){
         this.id = id || uuid.v4();
         this.sendMessage({connection: "ok", id: this.id});
         this.listenForCommands();
@@ -28,15 +28,22 @@ export class WSClientHandler {
     async init() {
         const clientChannels = await db.getAllSubscriptions(this.id);
         clientChannels.forEach((channel:string) => {
-            const sub = getObservable(channel).subscribe(this.observer);
+            const sub = this.nodeProxy.getChannel(channel).subscribe(this.observer);
             this.subscriptions.set(channel, sub)
         })
     }
 
     private async addSubscription(channel: string) {
-        const sub = getObservable(channel).subscribe(this.observer);
-        this.subscriptions.set(channel, sub);
-        await db.saveSubscription(this.id, channel);
+        try {
+            const sub = this.nodeProxy.getChannel(channel)
+                .subscribe(this.observer);
+            this.subscriptions.set(channel, sub);
+            await db.saveSubscription(this.id, channel);
+            this.sendMessage({status: "ok", op: `subscribe ${channel}`})
+        }catch (e) {
+            this.sendMessage({msg: `Bad channel: ${channel}`})
+        }
+
     }
 
     private async removeSubscription(channel: string) {
