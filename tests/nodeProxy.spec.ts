@@ -1,9 +1,7 @@
-import {getUTX} from '../src/nodeProxy';
+import {sync} from '../src/nodeProxy';
 import * as chai from 'chai';
 import {expect} from 'chai'
 import {describe, before, it} from 'mocha';
-
-const baseNodeUrl = 'https://nodes.wavesplatform.com';
 
 chai.use(require('chai-http'));
 describe('get utx', () => {

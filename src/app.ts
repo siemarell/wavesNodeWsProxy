@@ -10,11 +10,17 @@ import {async} from "rxjs/internal/scheduler/async";
 const wss = new WebSocket.Server({port: 40510});
 
 wss.on('connection', async (ws: WebSocket, req) =>{
-    const { query: { token } } = url.parse(req.url, true);
-    const handler = new WSClientHandler(ws, token.toString());
-    await handler.init();
-    console.log(`${token} init complete`)
-    ws.on('close', () => handler.destroy());
+    const { query: { sessionId }, pathname } = url.parse(req.url, true);
+    if (!(pathname === '/api')){
+        ws.send(`Invalid path: ${pathname}`);
+        ws.close();
+        return;
+    }else{
+        const handler = new WSClientHandler(ws, <string>sessionId);
+        await handler.init();
+        console.log(`${sessionId} init complete`);
+        ws.on('close', () => handler.destroy());
+    }
 });
 
 //app.listen(3000, () => console.log('Example app listening on port 3000!'));

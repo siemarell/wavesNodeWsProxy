@@ -18,9 +18,9 @@ export class WSClientHandler {
         complete: () => {}
     };
 
-    constructor(private ws:WebSocket, private readonly id?: string){
+    constructor(private ws:WebSocket, readonly id?: string){
         this.id = id || uuid.v4();
-        this.sendMessage({connection: "ok", id: id});
+        this.sendMessage({connection: "ok", id: this.id});
         this.listenForCommands();
     }
 

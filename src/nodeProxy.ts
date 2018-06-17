@@ -1,11 +1,10 @@
 import {Observable} from "rxjs/internal/Observable";
 import {map, concatMap, combineAll} from "rxjs/operators";
-import {interval, Observer, Subject} from "rxjs/index";
+import {interval, Observer, Subject} from "rxjs";
 import * as request from 'request-promise'
 import {config as cfg} from './config';
 import {asleep} from './utils'
 import {async} from "rxjs/internal/scheduler/async";
-
 
 interface IStorage {
     lastUtx: number,
