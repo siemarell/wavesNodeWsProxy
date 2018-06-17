@@ -21,7 +21,7 @@ wss.on('connection', async (ws: WebSocket, req) =>{
     }else{
         const handler = new WSClientHandler(ws, nodeProxy, <string>sessionId);
         await handler.init();
-        console.log(`${sessionId} init complete`);
+        console.log(`${handler.id} init complete`);
         ws.on('close', () => handler.destroy());
     }
 });

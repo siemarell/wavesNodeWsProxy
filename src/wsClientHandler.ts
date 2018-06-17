@@ -8,7 +8,11 @@ import {Observer} from "rxjs/internal/types";
 
 
 export class WSClientHandler {
+    get id(): string {
+        return this._id;
+    }
     private subscriptions: Map<string, Subscription> = new Map<string, Subscription>();
+    private readonly _id: string;
 
     private parser: ICommandParser = commandParser;
 
@@ -18,15 +22,15 @@ export class WSClientHandler {
         complete: () => {}
     };
 
-    constructor(private ws:WebSocket, private nodeProxy: INodeProxy, readonly id?: string){
-        this.id = id || uuid.v4();
+    constructor(private ws:WebSocket, private nodeProxy: INodeProxy, id?: string){
+        this._id = id || uuid.v4();
         this.sendMessage({connection: "ok", id: this.id});
         this.listenForCommands();
     }
 
 
     async init() {
-        const clientChannels = await db.getAllSubscriptions(this.id);
+        const clientChannels = await db.getAllSubscriptions(this._id);
         clientChannels.forEach((channel:string) => {
             const sub = this.nodeProxy.getChannel(channel).subscribe(this.observer);
             this.subscriptions.set(channel, sub)
@@ -38,7 +42,7 @@ export class WSClientHandler {
             const sub = this.nodeProxy.getChannel(channel)
                 .subscribe(this.observer);
             this.subscriptions.set(channel, sub);
-            await db.saveSubscription(this.id, channel);
+            await db.saveSubscription(this._id, channel);
             this.sendMessage({status: "ok", op: `subscribe ${channel}`})
         }catch (e) {
             this.sendMessage({msg: `Bad channel: ${channel}`})
@@ -50,7 +54,7 @@ export class WSClientHandler {
         const sub = this.subscriptions.get(channel);
         if (sub != undefined) sub.unsubscribe();
         this.subscriptions.delete(channel);
-        await db.deleteSubscription(this.id, channel);
+        await db.deleteSubscription(this._id, channel);
     }
 
     private sendMessage(obj: Object): void {

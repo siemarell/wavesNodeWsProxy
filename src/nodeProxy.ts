@@ -1,9 +1,10 @@
 import {Observable} from "rxjs/internal/Observable";
-import {map, concatMap, combineAll} from "rxjs/operators";
+import {map, concatMap, publish, share, filter, tap} from "rxjs/operators";
 import {interval, Observer, Subject} from "rxjs";
 import * as request from 'request-promise';
 import {asleep} from './utils'
 import {async} from "rxjs/internal/scheduler/async";
+import {Subscription} from "rxjs/internal/Subscription";
 
 interface IStorage {
     lastUtx: number,
@@ -18,11 +19,37 @@ interface IStorage {
 // }
 
 export interface INodeProxy {
-    getChannel(channel: string): Observable<string>
+    getChannel(channel: string): Observable<any>
 }
 
 export class NodeProxy implements INodeProxy{
-    constructor(private nodeUrl: string, private pollInterval: number){}
+    private utxPool: Map<string, {}> = new Map();
+    private utxSubscription: Subscription;
+
+    private _processUtxResponce = (utxs: Array<any>) => {
+        const updatedPool = new Map<string, {}>();
+        utxs.forEach(utx =>{
+            if (!this.utxPool.has(utx.signature)){
+                console.log(utx);
+                this.utxData.next(utx);
+            }
+            updatedPool.set(utx.signature, utx)
+        });
+    };
+
+    private readonly utxData: Subject<any> = new Subject<any>();
+    constructor(private nodeUrl: string, private pollInterval: number){
+       this.utxSubscription = interval(this.pollInterval)
+            .pipe(
+                concatMap(async()=>{
+                    return await this.getUTXs();
+                }),
+            )
+            .subscribe(this._processUtxResponce)
+
+        // utxObservable.subscribe(utxSubject);
+        // this.utxData = utxSubject;
+    }
 
     storage: IStorage = {
         lastUtx: -1,
@@ -30,39 +57,23 @@ export class NodeProxy implements INodeProxy{
         subjects: []
     };
 
-    private _utxObs = interval(this.pollInterval).pipe(
-        concatMap(async()=>{
-            const newUtxs = await this.getUTX();
-            return newUtxs.filter((utx: any) => {
-                if (utx.timestamp > this.storage.lastUtx) {
 
-                    this.storage.lastUtx = utx.timestamp;
-                    return true
-                }
-                return false
-            });
-        })
-    )
-
-    private async getUTX() {
+    private async getUTXs(): Promise<Array<any>> {
         const options = {
             uri: `${this.nodeUrl}/transactions/unconfirmed`,
             json: true
         };
-        const resp = await request.get(options);
-        // console.log(resp.map((x:any)=>x.timestamp));
-        // console.log(resp.slice().sort((a:any, b:any)=> a.timestamp - b.timestamp).map((x:any)=>x.timestamp));
-        return resp.slice().sort((a: any, b: any) => a.timestamp - b.timestamp);
+        return await request.get(options);
     }
 
     getChannel(channelName: string){
         if (channelName === 'utx'){
-            return <Observable<string>>this._utxObs
+            return this.utxData.asObservable()
         }
-        return new Observable<string>()
+        return new Observable()
     }
 }
 
-const proxy = new NodeProxy("https://nodes.wavesplatform.com", 3000);
-proxy.getChannel('utx').subscribe(x=> console.log(x))
-setInterval(console.log, 3000, "1")
+// const proxy = new NodeProxy("https://nodes.wavesplatform.com", 3000);
+// proxy.getChannel('utx').subscribe(x=> console.log(x))
+// setInterval(console.log, 3000, "1")
