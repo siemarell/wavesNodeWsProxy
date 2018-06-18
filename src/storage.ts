@@ -7,23 +7,6 @@ let knex = Knex({
     }
 });
 
-
-export function init() {
-    knex.schema
-        .dropTableIfExists('client_subscriptions')
-        .createTable('client_subscriptions', table => {
-            table.string('client_uuid').notNullable();
-            table.string('channel').notNullable();
-        })
-        .then(() => {
-            console.log('ok');
-            knex.destroy()
-        }, error => {
-            console.log(error);
-            knex.destroy()
-        });
-}
-
 export const db: IStorage = {
     async getAllSubscriptions(clientId: string) {
         const resultSet = await knex('client_subscriptions')
@@ -48,6 +31,15 @@ export const db: IStorage = {
             client_uuid: clientId,
             channel: channel
         }).del()
+    },
+
+    async getlastHeightAndSig(): Promise<{height:number, sig:string}>{
+        const result = await knex('last_height_sig');
+        return result[0]
+    },
+
+    destroy(){
+        knex.destroy()
     }
 };
 
@@ -57,4 +49,8 @@ export interface IStorage {
     saveSubscription(sessionId: string, channel: string): Promise<void>;
 
     deleteSubscription(sessionId: string, channel: string): Promise<void>;
+
+    getlastHeightAndSig(): Promise<{height:number, sig:string}>;
+
+    destroy(): void;
 }
