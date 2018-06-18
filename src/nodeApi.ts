@@ -22,7 +22,7 @@ export class NodeApi implements INodeApi {
 
     async getHeight(): Promise<number> {
         const options = {
-            uri: `${this.nodeUrl}/blocks/last`,
+            uri: `${this.nodeUrl}/blocks/headers/last`,
             json: true
         };
         const resp = await request.get(options);
