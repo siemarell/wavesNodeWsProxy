@@ -33,9 +33,9 @@ export const db: IStorage = {
         }).del()
     },
 
-    async getlastHeightAndSig(): Promise<{height:number, sig:string}>{
+    async getlastHeightAndSig(): Promise<{lastHeight:number, lastSig:string}>{
         const result = await knex('last_height_sig');
-        return result[0]
+        return {lastHeight: result[0].height, lastSig: result[0].sig}
     },
 
     destroy(){
@@ -50,7 +50,7 @@ export interface IStorage {
 
     deleteSubscription(sessionId: string, channel: string): Promise<void>;
 
-    getlastHeightAndSig(): Promise<{height:number, sig:string}>;
+    getlastHeightAndSig(): Promise<{lastHeight:number, lastSig:string}>;
 
     destroy(): void;
 }

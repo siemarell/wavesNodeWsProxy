@@ -22,8 +22,8 @@ knex.schema
         table.string('sig').notNullable();
     })
     .then(async () => {
-        const [height, sig] = await nodeApi.getHeightAndSig();
-        await knex('last_height_sig').insert({height: height, sig: sig});
+        const {currentHeight, currentSig} = await nodeApi.getHeightAndSig();
+        await knex('last_height_sig').insert({height: currentHeight, sig: currentSig});
         console.log('ok');
         knex.destroy()
     }, error => {
