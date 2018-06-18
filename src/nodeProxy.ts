@@ -3,38 +3,33 @@ import {map, concatMap, publish, share, filter, tap} from "rxjs/operators";
 import {interval, Observer, Subject} from "rxjs";
 import * as request from 'request-promise';
 import {Subscription} from "rxjs/internal/Subscription";
+import {INodeApi, NodeApi} from "./nodeApi";
 
 
 export interface INodeProxy {
-    getChannel(channel: string): Observable<any>
+    getChannel(channel: string): Observable<any>;
+    destroy(): void;
 }
+
 
 export class NodeProxy implements INodeProxy{
     private utxPool: Map<string, {timesAbsent: number, utx: {}}> = new Map();
-    private utxSubscription: Subscription;
+    private subscriptions: Map<string, Subscription> = new Map();
+
     private readonly utxData: Subject<any> = new Subject<any>();
 
-    constructor(private nodeUrl: string, private pollInterval: number){
-       this.utxSubscription = interval(this.pollInterval)
+    constructor(private nodeApi: INodeApi, private pollInterval: number){
+       this.subscriptions.set('utx', interval(this.pollInterval)
             .pipe(
                 concatMap(async()=>{
-                    return await this.getUTXs();
+                    return await this.nodeApi.getUtxs();
                 }),
             )
             .subscribe(this._processUtxResponse)
+       )
     }
 
-    private async getUTXs(): Promise<Array<any>> {
-        const options = {
-            uri: `${this.nodeUrl}/transactions/unconfirmed`,
-            json: true
-        };
-        return await request.get(options);
-    }
-
-    private _processUtxResponse = (utxs: Array<any>) => {
-        //const updatedPool = new Map<string, {}>();
-
+    private _processUtxResponse = (utxs: Array<any>): void => {
         utxs.filter(utx => utx.type === 4)
             .forEach(utx =>{
                 if (!this.utxPool.has(utx.signature)){
@@ -55,10 +50,24 @@ export class NodeProxy implements INodeProxy{
         }
     };
 
-    public getChannel(channelName: string){
-        if (channelName === 'utx'){
-            return this.utxData.asObservable()
+    public getChannel(channelName: string): Observable<any>{
+        const channelArr = channelName.split('/');
+        switch (channelArr[0]) {
+            case 'utx':
+                return this.utxData.asObservable();
+            // case 'block':
+            //     return this.blockData.asObservable;
+            // case 'address':
+            //     if (!this.checkAddress(channelArr[1])){
+            //
+            //     }
+            default:
+                throw new Error('Unknown channel')
         }
         return new Observable()
+    }
+
+    public destroy(){
+        this.subscriptions.forEach(v=> v.unsubscribe());
     }
 }
