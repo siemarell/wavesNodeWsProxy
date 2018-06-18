@@ -18,8 +18,8 @@ describe('Node API', () => {
 
     it('Should get blockchain height and last block sig', async () => {
         const result = await nodeApi.getHeightAndSig();
-        expect(result[0]).to.be.a('Number');
-        expect(result[1]).to.be.a('String');
+        expect(result.currentHeight).to.be.a('Number');
+        expect(result.currentSig).to.be.a('String');
     });
 
     it('Should get utxs from node', async () => {
