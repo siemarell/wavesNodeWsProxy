@@ -2,10 +2,10 @@ import * as request from 'request-promise';
 
 export interface INodeApi {
     checkAddress(address: string): Promise<boolean>;
-    getHeight(): Promise<number>;
+    getHeightAndSig(): Promise<[number,string]>;
     getUtxs(): Promise<Array<any>>;
     getBlocks(from: number, to: number): Promise<Array<any>>;
-    getAddressTxs(address: string, limit?: number): Promise<Array<any>>
+    getAddressTxs(address: string, limit?: number): Promise<Array<any>>;
 }
 
 export class NodeApi implements INodeApi {
@@ -20,13 +20,13 @@ export class NodeApi implements INodeApi {
         return resp.valid;
     }
 
-    async getHeight(): Promise<number> {
+    async getHeightAndSig(): Promise<[number, string]> {
         const options = {
             uri: `${this.nodeUrl}/blocks/headers/last`,
             json: true
         };
         const resp = await request.get(options);
-        return resp.height;
+        return [resp.height, resp.signature];
     }
 
     async getAddressTxs(address: string, limit: number=100): Promise<Array<any>> {
