@@ -39,4 +39,10 @@ describe('Node API', () => {
         assert(result.length === 5);
     });
 
+    it('Should get block at specific height', async () => {
+        const result = await nodeApi.getBlockAt(190);
+        assert(result.signature === '2gqi8WwkSbCUQSL7SPWr8jxhMXWKApQVP57ykxELr5ghetHp2MABCPyy3EdGNF15QKthdFzFsjj2EcGikf1QK3P6');});
+
+
+
 });
