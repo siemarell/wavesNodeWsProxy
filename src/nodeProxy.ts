@@ -1,5 +1,5 @@
 import {Observable} from "rxjs/internal/Observable";
-import {map, concatMap, publish, share, filter, tap} from "rxjs/operators";
+import {map, concatMap, publish, share, filter, tap, flatMap, mergeMap} from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
 import * as request from 'request-promise';
 import {Subscription} from "rxjs/internal/Subscription";
@@ -7,6 +7,10 @@ import {INodeApi, NodeApi} from "./nodeApi";
 import {config} from "./config";
 import {db} from './storage'
 import {async} from "rxjs/internal/scheduler/async";
+import {from} from "rxjs/internal/observable/from";
+import {fromArray} from "rxjs/internal/observable/fromArray";
+import {zip} from "rxjs/internal/observable/zip";
+import {fromPromise} from "rxjs/internal-compatibility";
 
 export interface INodeProxy {
     getChannel(channel: string): Observable<any>;
@@ -38,7 +42,7 @@ export class NodeProxy implements INodeProxy{
             .pipe(
                 concatMap(async()=>{
                     return await this._pollNewBlocks();
-                }),
+                })
             )
             .subscribe(this._processBlocksResponse)
        );
@@ -69,7 +73,7 @@ export class NodeProxy implements INodeProxy{
         let currentHeight: number,
             currentSig: string;
 
-        blocks.forEach(async (block:any)=>{
+        blocks.forEach((block:any)=>{
             block.transactions.forEach((tx:any) => {
                 if(!this.txPool.has(tx.signature)){
                     this.txPool.set(tx.signature, tx);
@@ -78,7 +82,7 @@ export class NodeProxy implements INodeProxy{
                 }
             })  ;
             currentHeight = block.height;
-            currentSig = block.sig;
+            currentSig = block.signature;
         });
         if (currentSig && currentHeight){
             await this.storage.setLastHeightAndSig(currentHeight, currentSig);
@@ -99,9 +103,12 @@ export class NodeProxy implements INodeProxy{
                 .map(x => x + lastHeight)
         }
 
-        return Promise.all(blocksToSync.map(async (blockHeight: number)=>{
-            return await this.nodeApi.getBlockAt(blockHeight)
-        }));
+        let result = [];
+        for (let height of blocksToSync.slice(0,2)){
+            result.push(await this.nodeApi.getBlockAt(height))
+            console.log(result)
+        }
+        return result;
     };
 
     public getChannel(channelName: string): Observable<any>{
