@@ -7,8 +7,14 @@ import {async} from "rxjs/internal/scheduler/async";
 describe('Storage', () => {
     it('Should return last height and sig', async () => {
         const result = await db.getlastHeightAndSig();
-        expect(result.height).to.be.a('Number');
-        expect(result.sig).to.be.a('String');
+        expect(result.lastHeight).to.be.a('Number');
+        expect(result.lastSig).to.be.a('String');
+    });
+
+    it('Should set last height and sig', async () => {
+        await db.setLastHeightAndSig(1, '123');
+        const result = await db.getlastHeightAndSig();
+        assert(result.lastSig === '123' && result.lastHeight === 1)
     });
 
     it('Should save and return subscriptions', async ()=>{
