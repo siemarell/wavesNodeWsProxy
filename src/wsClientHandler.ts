@@ -2,10 +2,9 @@ import {Subscription} from "rxjs/internal/Subscription";
 import * as WebSocket from 'ws';
 import {CommandType, ICommandParser, commandParser} from "./commandParser";
 import uuid = require("uuid");
-import * as db from './storage';
 import {INodeProxy} from './nodeProxy';
 import {Observer} from "rxjs/internal/types";
-
+import {IStorage, db} from './storage'
 
 export class WSClientHandler {
     get id(): string {
@@ -13,6 +12,7 @@ export class WSClientHandler {
     }
     private subscriptions: Map<string, Subscription> = new Map<string, Subscription>();
     private readonly _id: string;
+    private storage: IStorage = db;
 
     private parser: ICommandParser = commandParser;
 
@@ -30,7 +30,7 @@ export class WSClientHandler {
 
 
     async init() {
-        const clientChannels = await db.getAllSubscriptions(this._id);
+        const clientChannels = await this.storage.getAllSubscriptions(this._id);
         clientChannels.forEach((channel:string) => {
             const sub = this.nodeProxy.getChannel(channel).subscribe(this.observer);
             this.subscriptions.set(channel, sub)
@@ -42,7 +42,7 @@ export class WSClientHandler {
             const sub = this.nodeProxy.getChannel(channel)
                 .subscribe(this.observer);
             this.subscriptions.set(channel, sub);
-            await db.saveSubscription(this._id, channel);
+            await this.storage.saveSubscription(this._id, channel);
             this.sendMessage({status: "ok", op: `subscribe ${channel}`})
         }catch (e) {
             this.sendMessage({msg: `Bad channel: ${channel}`})
@@ -54,7 +54,7 @@ export class WSClientHandler {
         const sub = this.subscriptions.get(channel);
         if (sub != undefined) sub.unsubscribe();
         this.subscriptions.delete(channel);
-        await db.deleteSubscription(this._id, channel);
+        await this.storage.deleteSubscription(this._id, channel);
     }
 
     private sendMessage(obj: Object): void {
@@ -94,4 +94,3 @@ export class WSClientHandler {
         }
     }
 }
-
