@@ -6,11 +6,13 @@ import {WSClientHandler} from "./wsClientHandler";
 import {async} from "rxjs/internal/scheduler/async";
 import {NodeProxy} from './nodeProxy';
 import {config} from "./config";
+import {NodeApi} from './nodeApi'
 
 //const app = express();
 
 const wss = new WebSocket.Server({port: config.appPort});
-const nodeProxy = new NodeProxy(config.nodeUrl, config.pollInterval);
+const nodeApi = new NodeApi(config.nodeUrl);
+const nodeProxy = new NodeProxy(nodeApi, config.pollInterval);
 
 wss.on('connection', async (ws: WebSocket, req) =>{
     const { query: { sessionId }, pathname } = url.parse(req.url, true);
