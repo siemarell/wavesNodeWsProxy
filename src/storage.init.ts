@@ -24,7 +24,8 @@ knex.schema
     .dropTableIfExists('block')
     .createTable('block', table => {
         table.integer('height').notNullable();
-        table.
+        table.string('signature').notNullable();
+        table.json('data')
     })
     .then(async () => {
         const {currentHeight, currentSig} = await nodeApi.getHeightAndSig();

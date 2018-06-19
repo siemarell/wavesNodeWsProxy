@@ -7,7 +7,7 @@ import {
 } from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
 import {Subscription} from "rxjs/internal/Subscription";
-import {INodeApi, NodeApi} from "./nodeApi";
+import {INodeApi} from "./nodeApi";
 import {config} from "./config";
 import {db} from './storage'
 import {fromPromise} from "rxjs/internal-compatibility";
@@ -41,8 +41,9 @@ export class NodeProxy implements INodeProxy {
         const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
         const {currentHeight, currentSig} = await this.nodeApi.getHeightAndSig();
 
-
-        if (currentHeight === lastHeight && currentSig !== lastSig) {
+        if (currentSig !== lastSig) {
+            const heightToSync = this.getHeightToSyncFrom(lastHeight)
+            //sync all after
             blocksToSync = [currentHeight]
         } else if (currentHeight > lastHeight) {
             blocksToSync = Array.from(Array(currentHeight - lastHeight + 1).keys())
@@ -184,4 +185,20 @@ export class NodeProxy implements INodeProxy {
         complete: () => {
         }
     };
+
+    getHeightToSyncFrom = async(lastHeight: number) =>{
+        const loop = async (height: number):Promise<number> => {
+            const blockInStorage = await this.storage.getBlockAt(height);
+            if (!blockInStorage) return height;
+            try{
+                await this.nodeApi.getBlockBy(blockInStorage.signature);
+                return height
+            }catch (e) {
+                return await loop(height - 1)
+            }
+        };
+
+        await loop(lastHeight);
+    }
 }
+
