@@ -3,7 +3,7 @@ import {
     concatMap,
     filter,
     concatAll,
-    exhaustMap
+    exhaustMap, distinct, mergeAll
 } from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
 import {Subscription} from "rxjs/internal/Subscription";
@@ -11,6 +11,7 @@ import {INodeApi} from "./nodeApi";
 import {config} from "./config";
 import {db} from './storage'
 import {fromPromise} from "rxjs/internal-compatibility";
+import {filterByAddress} from "./utils";
 
 
 export interface INodeProxy {
@@ -29,10 +30,21 @@ export class NodeProxy implements INodeProxy {
     private readonly utxData: Subject<any> = new Subject<any>();
     private readonly txData: Subject<any> = new Subject<any>();
     private readonly blockData: Subject<any> = new Subject<any>();
+    private readonly heightData: Subject<any> = new Subject<number>();
 
     constructor(private nodeApi: INodeApi, private pollInterval: number) {
         this.createNewUtxSubscription(this.utxObserver);
         this.createNewBlockSubscription(this.blockObserver);
+    }
+
+    private async getTxsAtHeight(h: number) {
+        const block = await this.storage.getBlockAt(h);
+        let result = [];
+        if (block) {
+            const txs = JSON.parse(block.data).transactions;
+            if (txs) result = txs
+        }
+        return result;
     }
 
     public getChannel(channelName: string): Observable<any> {
@@ -43,27 +55,44 @@ export class NodeProxy implements INodeProxy {
             case 'block':
                 return this.blockData.asObservable();
             case 'tx':
+                if (args[1] === 'confirmed' && parseInt(args[2])) {
+                    const confirmations = parseInt(args[2], 10)
+                    return this.heightData.pipe(
+                        distinct(),
+                        concatMap(h => this.getTxsAtHeight(h - confirmations)),
+                        concatAll()
+                    )
+                }
                 return this.txData.asObservable();
             case 'address':
                 if (!this.nodeApi.checkAddress(args[1])) {
                     throw new Error('Invalid channel')
                 } else {
-                    const txData = this.txData
-                        .pipe(filter(utx => [utx.sender, utx.recipient].indexOf(args[1]) > -1));
-                    const utxData = this.utxData
-                        .pipe(filter(utx => [utx.sender, utx.recipient].indexOf(args[1]) > -1));
-                    if (args[2] === 'utx') {
-                        return utxData
-                    } else if (args[2] === 'tx') {
-                        return txData
+                    if (args[2] === 'confirmed' && parseInt(args[3])) {
+                        const confirmations = parseInt(args[3], 10)
+                        return this.heightData.pipe(
+                            distinct(),
+                            concatMap(h => this.getTxsAtHeight(h - confirmations)),
+                            concatAll(),
+                            filter(filterByAddress(args[1]))
+                        )
                     } else {
-                        return merge(txData, utxData)
+                        const txData = this.txData
+                            .pipe(filter(filterByAddress(args[1])));
+                        const utxData = this.utxData
+                            .pipe(filter(filterByAddress(args[1])));
+                        if (args[2] === 'utx') {
+                            return utxData
+                        } else if (args[2] === 'tx') {
+                            return txData
+                        } else {
+                            return merge(txData, utxData)
+                        }
                     }
                 }
             default:
                 throw new Error('Unknown channel')
         }
-        return new Observable()
     }
 
     public destroy() {
@@ -162,6 +191,7 @@ export class NodeProxy implements INodeProxy {
 
         next: (block: any) => {
             this.blockData.next(block);
+            this.heightData.next(block.height);
             block.transactions.forEach((tx: any) => {
                 if (!this.txPool.has(tx.signature)) {
                     this.txPool.set(tx.signature, tx);
@@ -179,14 +209,14 @@ export class NodeProxy implements INodeProxy {
         }
     };
 
-    getHeightToSyncFrom = async(lastHeight: number): Promise<number> =>{
-        const loop = async (height: number):Promise<number> => {
+    getHeightToSyncFrom = async (lastHeight: number): Promise<number> => {
+        const loop = async (height: number): Promise<number> => {
             const blockInStorage = await this.storage.getBlockAt(height);
             if (!blockInStorage) return height;
-            try{
+            try {
                 await this.nodeApi.getBlockBy(blockInStorage.signature);
                 return height
-            }catch (e) {
+            } catch (e) {
                 return await loop(height - 1)
             }
         };
