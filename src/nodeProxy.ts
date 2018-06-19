@@ -35,26 +35,6 @@ export class NodeProxy implements INodeProxy {
         this.createNewBlockSubscription(this.blockObserver);
     }
 
-    private _getBlockHeightsToSync = async () => {
-        let blocksToSync: Array<number> = [];
-
-        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
-        const {currentHeight, currentSig} = await this.nodeApi.getHeightAndSig();
-
-        if (currentSig !== lastSig) {
-            const heightToSync = this.getHeightToSyncFrom(lastHeight)
-            //sync all after
-            blocksToSync = [currentHeight]
-        } else if (currentHeight > lastHeight) {
-            blocksToSync = Array.from(Array(currentHeight - lastHeight + 1).keys())
-                .map(x => x + lastHeight)
-        }
-        console.log(
-            `Current height: ${currentHeight}, Blocks to sync: ${blocksToSync}`
-        );
-        return blocksToSync;
-    };
-
     public getChannel(channelName: string): Observable<any> {
         const args = channelName.split('/');
         switch (args[0]) {
@@ -62,6 +42,8 @@ export class NodeProxy implements INodeProxy {
                 return this.utxData.asObservable();
             case 'block':
                 return this.blockData.asObservable();
+            case 'tx':
+                return this.txData.asObservable();
             case 'address':
                 if (!this.nodeApi.checkAddress(args[1])) {
                     throw new Error('Invalid channel')
@@ -107,14 +89,25 @@ export class NodeProxy implements INodeProxy {
 
     private processBlock = async (block: any): Promise<any> => {
         console.log(`Processing block at ${block.height} with signature ${block.signature}`);
-        //todo: check if block is duplicate
-        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
-        if (lastSig === block.signature) {
-            console.log(`Duplicate  ${block.signature}`);
-            return
-        }
-        await this.storage.setLastHeightAndSig(block.height, block.signature);
+        await this.storage.saveBlock(block);
         return block;
+    };
+
+    private _getBlockHeightsToSync = async () => {
+        let blocksToSync: Array<number> = [];
+
+        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
+        const {currentHeight, currentSig} = await this.nodeApi.getHeightAndSig();
+
+        if (currentSig !== lastSig) {
+            const heightToSync = await this.getHeightToSyncFrom(lastHeight);
+            blocksToSync = Array.from(Array(currentHeight - heightToSync).keys())
+                .map(x => x + heightToSync + 1)
+        }
+        console.log(
+            `Current height: ${currentHeight}, Blocks to sync: ${blocksToSync}`
+        );
+        return blocksToSync;
     };
 
     private createNewUtxSubscription(observer: Observer<any>) {
@@ -186,7 +179,7 @@ export class NodeProxy implements INodeProxy {
         }
     };
 
-    getHeightToSyncFrom = async(lastHeight: number) =>{
+    getHeightToSyncFrom = async(lastHeight: number): Promise<number> =>{
         const loop = async (height: number):Promise<number> => {
             const blockInStorage = await this.storage.getBlockAt(height);
             if (!blockInStorage) return height;
@@ -198,7 +191,7 @@ export class NodeProxy implements INodeProxy {
             }
         };
 
-        await loop(lastHeight);
+        return await loop(lastHeight - 1);
     }
 }
 

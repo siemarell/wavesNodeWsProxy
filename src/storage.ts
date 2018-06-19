@@ -35,8 +35,8 @@ export const db: IStorage = {
     },
 
     async getlastHeightAndSig(): Promise<{ lastHeight: number, lastSig: string }> {
-        const result = await knex('last_height_sig');
-        return {lastHeight: result[0].height, lastSig: result[0].sig}
+        const result = await knex('block').orderBy('height','desc').limit(1);
+        return {lastHeight: result[0].height, lastSig: result[0].signature}
     },
 
     async setLastHeightAndSig(height: number, sig: string) {
