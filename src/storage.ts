@@ -53,7 +53,7 @@ export const db: IStorage = {
         await knex('block').insert({
             height: block.height,
             signature: block.signature,
-            data: block
+            data: JSON.stringify(block)
         })
     },
 

@@ -16,11 +16,6 @@ knex.schema
         table.string('client_uuid').notNullable();
         table.string('channel').notNullable();
     })
-    .dropTableIfExists('last_height_sig')
-    .createTable('last_height_sig', table => {
-        table.integer('height').notNullable();
-        table.string('sig').notNullable();
-    })
     .dropTableIfExists('block')
     .createTable('block', table => {
         table.integer('height').notNullable();
