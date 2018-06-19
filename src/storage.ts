@@ -1,4 +1,5 @@
 import * as Knex from "knex"
+import {asleep} from "./utils";
 
 let knex = Knex({
     dialect: 'sqlite3',
@@ -39,6 +40,7 @@ export const db: IStorage = {
     },
 
     async setLastHeightAndSig(height: number, sig: string){
+        await asleep(1000);
         await knex('last_height_sig').update({height: height, sig: sig});
     },
 
