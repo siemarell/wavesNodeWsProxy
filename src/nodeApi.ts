@@ -6,6 +6,7 @@ export interface INodeApi {
     getUtxs(): Promise<Array<any>>;
     getBlocks(from: number, to: number): Promise<Array<any>>;
     getBlockAt(height: number): Promise<any>;
+    getBlockBy(signature: string): Promise<any>;
     getAddressTxs(address: string, limit?: number): Promise<Array<any>>;
 }
 
@@ -53,6 +54,15 @@ export class NodeApi implements INodeApi {
         };
         return await request.get(options);
     }
+
+    async getBlockBy(signature: string){
+        const options = {
+            uri: `${this.nodeUrl}/blocks/signature/${signature}`,
+            json: true
+        };
+        return await request.get(options);
+    }
+
     async getUtxs(): Promise<Array<any>> {
         const options = {
             uri: `${this.nodeUrl}/transactions/unconfirmed`,

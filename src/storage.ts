@@ -34,17 +34,34 @@ export const db: IStorage = {
         }).del()
     },
 
-    async getlastHeightAndSig(): Promise<{lastHeight:number, lastSig:string}>{
-        const result = await knex('last_height_sig');
-        return {lastHeight: result[0].height, lastSig: result[0].sig}
+    async getlastHeightAndSig(): Promise<{ lastHeight: number, lastSig: string }> {
+        const result = await knex('block').orderBy('height','desc').limit(1);
+        return {lastHeight: result[0].height, lastSig: result[0].signature}
     },
 
-    async setLastHeightAndSig(height: number, sig: string){
-        await asleep(1000);
+    async setLastHeightAndSig(height: number, sig: string) {
         await knex('last_height_sig').update({height: height, sig: sig});
     },
 
-    destroy(){
+    async getBlockAt(height) {
+        const result = await knex('block').where({height: height});
+        return result === [] ? undefined : result[0];
+    },
+
+    async saveBlock(block) {
+        await this.deleteBlockAt(block.height);
+        await knex('block').insert({
+            height: block.height,
+            signature: block.signature,
+            data: JSON.stringify(block)
+        })
+    },
+
+    async deleteBlockAt(height) {
+        await knex('block').where({height:height}).del()
+    },
+
+    destroy() {
         knex.destroy()
     }
 };
@@ -56,9 +73,15 @@ export interface IStorage {
 
     deleteSubscription(sessionId: string, channel: string): Promise<void>;
 
-    getlastHeightAndSig(): Promise<{lastHeight:number, lastSig:string}>;
+    getlastHeightAndSig(): Promise<{ lastHeight: number, lastSig: string }>;
 
-    setLastHeightAndSig(height:number, sig: string): Promise<void>;
+    setLastHeightAndSig(height: number, sig: string): Promise<void>;
+
+    getBlockAt(height: number): Promise<any>;
+
+    saveBlock(block: any): Promise<void>;
+
+    deleteBlockAt(height: number): Promise<void>;
 
     destroy(): void;
 }

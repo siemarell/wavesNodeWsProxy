@@ -17,6 +17,19 @@ describe('Storage', () => {
         assert(result.lastSig === '123' && result.lastHeight === 1)
     });
 
+    it('Should save block', async () => {
+        await db.saveBlock({height:10,signature: "asd", data:{}});
+        const result = await db.getBlockAt(10);
+        assert(result.height === 10 && result.signature === "asd")
+    });
+
+    it('Should delete block', async () => {
+        await db.saveBlock({height:10,signature: "asd", data:{}});
+        await db.deleteBlockAt(10);
+        const result = await db.getBlockAt(10);
+        assert(result === undefined)
+    });
+
     it('Should save and return subscriptions', async ()=>{
         await db.saveSubscription('123', 'first');
         await db.saveSubscription('123', 'second');
