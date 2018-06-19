@@ -14,16 +14,16 @@ import {fromPromise} from "rxjs/internal-compatibility";
 import {concat} from "rxjs/internal/observable/concat";
 
 
-
 export interface INodeProxy {
     getChannel(channel: string): Observable<any>;
+
     destroy(): void;
 }
 
 
-export class NodeProxy implements INodeProxy{
-    private utxPool: Map<string, {timesAbsent: number, utx: {}}> = new Map();
-    private txPool: Map<string, any> =  new Map<string, any>();
+export class NodeProxy implements INodeProxy {
+    private utxPool: Map<string, { timesAbsent: number, utx: {} }> = new Map();
+    private txPool: Map<string, any> = new Map<string, any>();
     private subscriptions: Map<string, Subscription> = new Map();
     private storage = db;
 
@@ -31,44 +31,44 @@ export class NodeProxy implements INodeProxy{
     private readonly txData: Subject<any> = new Subject<any>();
     private readonly blockData: Subject<any> = new Subject<any>();
 
-    constructor(private nodeApi: INodeApi, private pollInterval: number){
-       // this.subscriptions.set('utx', interval(this.pollInterval)
-       //      .pipe(
-       //          concatMap(()=>{
-       //              return this.nodeApi.getUtxs();
-       //          }),
-       //      )
-       //      .subscribe(this._processUtxResponse)
-       // );
+    constructor(private nodeApi: INodeApi, private pollInterval: number) {
+        // this.subscriptions.set('utx', interval(this.pollInterval)
+        //      .pipe(
+        //          concatMap(()=>{
+        //              return this.nodeApi.getUtxs();
+        //          }),
+        //      )
+        //      .subscribe(this._processUtxResponse)
+        // );
 
-       this.subscriptions.set('block', interval(this.pollInterval)
+        this.subscriptions.set('block', interval(this.pollInterval)
             .pipe(
-                concatMap( () =>{
+                concatMap(() => {
                     return fromPromise(this._getBlockHeightsToSync()).pipe(
                         concatAll(),
                         concatMap(h => this.nodeApi.getBlockAt(h))
                     )
                 }),
             )
-            .subscribe(this._processBlocksResponse)
-       );
+            .subscribe(this.blockObserver)
+        );
     }
 
     private _processUtxResponse = (utxs: Array<any>): void => {
         utxs.filter(utx => utx.type === 4)
-            .forEach(utx =>{
-                if (!this.utxPool.has(utx.signature)){
+            .forEach(utx => {
+                if (!this.utxPool.has(utx.signature)) {
                     console.log(utx);
                     this.utxData.next(utx);
                     this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
-                }else {
+                } else {
                     const temp = this.utxPool.get(utx.signature);
-                    temp.timesAbsent -=1;
+                    temp.timesAbsent -= 1;
                     this.utxPool.set(utx.signature, temp);
                 }
             });
 
-        for (let key of this.utxPool.keys()){
+        for (let key of this.utxPool.keys()) {
             let val = this.utxPool.get(key);
             val.timesAbsent += 1;
             if (val.timesAbsent > config.utxAbsent) this.utxPool.delete(key);
@@ -77,8 +77,8 @@ export class NodeProxy implements INodeProxy{
 
     private _processBlocksResponse = async (block: any): Promise<void> => {
         console.log(block.height)
-        block.transactions.forEach((tx:any) => {
-            if(!this.txPool.has(tx.signature)){
+        block.transactions.forEach((tx: any) => {
+            if (!this.txPool.has(tx.signature)) {
                 this.txPool.set(tx.signature, tx);
                 this.utxData.next(tx);
             }
@@ -93,22 +93,18 @@ export class NodeProxy implements INodeProxy{
         const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
         const {currentHeight, currentSig} = await this.nodeApi.getHeightAndSig();
 
-        if(currentHeight === lastHeight && currentSig !== lastSig){
+
+        if (currentHeight === lastHeight && currentSig !== lastSig) {
             blocksToSync = [currentHeight]
-        }else if(currentHeight > lastHeight){
-            blocksToSync = Array.from(Array(currentHeight - lastHeight).keys())
+        } else if (currentHeight > lastHeight) {
+            blocksToSync = Array.from(Array(currentHeight - lastHeight + 1).keys())
                 .map(x => x + lastHeight)
         }
+        console.log(`Current height: ${currentHeight}\n Blocks to sync: ${blocksToSync}`);
         return blocksToSync;
-    }
-    // private _pollNewBlocks = async (): Promise<Array<Promise<any>>> => {
-    //
-    //
-    //     let result = blocksToSync.map(h=> this.nodeApi.getBlockAt(h))
-    //     return result;
-    // };
+    };
 
-    public getChannel(channelName: string): Observable<any>{
+    public getChannel(channelName: string): Observable<any> {
         const args = channelName.split('/');
         switch (args[0]) {
             case 'utx':
@@ -116,18 +112,18 @@ export class NodeProxy implements INodeProxy{
             case 'block':
                 return this.blockData.asObservable();
             case 'address':
-                if (!this.nodeApi.checkAddress(args[1])){
+                if (!this.nodeApi.checkAddress(args[1])) {
                     throw new Error('Invalid channel')
-                }else{
+                } else {
                     const txData = this.txData
                         .pipe(filter(utx => [utx.sender, utx.recipient].indexOf(args[1]) > -1));
                     const utxData = this.utxData
                         .pipe(filter(utx => [utx.sender, utx.recipient].indexOf(args[1]) > -1));
-                    if (args[2]==='utx'){
+                    if (args[2] === 'utx') {
                         return utxData
-                    }else if(args[2] === 'tx'){
+                    } else if (args[2] === 'tx') {
                         return txData
-                    }else {
+                    } else {
                         return merge(txData, utxData)
                     }
                 }
@@ -137,7 +133,42 @@ export class NodeProxy implements INodeProxy{
         return new Observable()
     }
 
-    public destroy(){
-        this.subscriptions.forEach(v=> v.unsubscribe());
+    public destroy() {
+        this.subscriptions.forEach(v => v.unsubscribe());
+    }
+
+    private blockObserver: Observer<any> = {
+        closed: false,
+
+        next: async (block: any): Promise<void> => {
+            console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+            block.transactions.forEach((tx: any) => {
+                if (!this.txPool.has(tx.signature)) {
+                    this.txPool.set(tx.signature, tx);
+                    this.utxData.next(tx);
+                }
+
+            });
+            await this.storage.setLastHeightAndSig(block.height, block.signature);
+        },
+
+        error: (err: any) => {
+            console.log(err);
+            this.subscriptions.get('block').unsubscribe();
+            this.subscriptions.set('block', interval(this.pollInterval)
+                .pipe(
+                    concatMap(() => {
+                        return fromPromise(this._getBlockHeightsToSync()).pipe(
+                            concatAll(),
+                            concatMap(h => this.nodeApi.getBlockAt(h))
+                        )
+                    }),
+                )
+                .subscribe(this.blockObserver)
+            )
+        },
+
+        complete: () => {
+        }
     }
 }
