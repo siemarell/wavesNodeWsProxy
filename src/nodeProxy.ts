@@ -32,60 +32,9 @@ export class NodeProxy implements INodeProxy {
     private readonly blockData: Subject<any> = new Subject<any>();
 
     constructor(private nodeApi: INodeApi, private pollInterval: number) {
-        // this.subscriptions.set('utx', interval(this.pollInterval)
-        //      .pipe(
-        //          concatMap(()=>{
-        //              return this.nodeApi.getUtxs();
-        //          }),
-        //      )
-        //      .subscribe(this._processUtxResponse)
-        // );
-
-        this.subscriptions.set('block', interval(this.pollInterval)
-            .pipe(
-                concatMap(() => {
-                    return fromPromise(this._getBlockHeightsToSync()).pipe(
-                        concatAll(),
-                        concatMap(h => this.nodeApi.getBlockAt(h))
-                    )
-                }),
-            )
-            .subscribe(this.blockObserver)
-        );
+        this.createNewUtxSubscription(this.utxObserver);
+        this.createNewBlockSubscription(this.blockObserver);
     }
-
-    private _processUtxResponse = (utxs: Array<any>): void => {
-        utxs.filter(utx => utx.type === 4)
-            .forEach(utx => {
-                if (!this.utxPool.has(utx.signature)) {
-                    console.log(utx);
-                    this.utxData.next(utx);
-                    this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
-                } else {
-                    const temp = this.utxPool.get(utx.signature);
-                    temp.timesAbsent -= 1;
-                    this.utxPool.set(utx.signature, temp);
-                }
-            });
-
-        for (let key of this.utxPool.keys()) {
-            let val = this.utxPool.get(key);
-            val.timesAbsent += 1;
-            if (val.timesAbsent > config.utxAbsent) this.utxPool.delete(key);
-        }
-    };
-
-    private _processBlocksResponse = async (block: any): Promise<void> => {
-        console.log(block.height)
-        block.transactions.forEach((tx: any) => {
-            if (!this.txPool.has(tx.signature)) {
-                this.txPool.set(tx.signature, tx);
-                this.utxData.next(tx);
-            }
-
-        });
-        await this.storage.setLastHeightAndSig(block.height, block.signature);
-    };
 
     private _getBlockHeightsToSync = async () => {
         let blocksToSync: Array<number> = [];
@@ -137,6 +86,67 @@ export class NodeProxy implements INodeProxy {
         this.subscriptions.forEach(v => v.unsubscribe());
     }
 
+    private createNewBlockSubscription(observer: Observer<any>) {
+        const oldSub = this.subscriptions.get('block');
+        if (oldSub) oldSub.unsubscribe()
+        const newSub = interval(this.pollInterval)
+            .pipe(
+                concatMap(() => {
+                    return fromPromise(this._getBlockHeightsToSync()).pipe(
+                        concatAll(),
+                        concatMap(h => this.nodeApi.getBlockAt(h))
+                    )
+                })
+            ).subscribe(observer);
+        this.subscriptions.set('block', newSub)
+    }
+
+    private createNewUtxSubscription(observer: Observer<any>) {
+        const oldSub = this.subscriptions.get('utx');
+        if (oldSub) oldSub.unsubscribe();
+        const newObs = interval(this.pollInterval)
+            .pipe(
+                concatMap(() => {
+                    return this.nodeApi.getUtxs();
+                })
+            )
+            .subscribe(observer);
+
+        this.subscriptions.set('utx', newObs);
+    }
+
+    private utxObserver: Observer<any> = {
+        closed: false,
+
+        next: (utxs: Array<any>): void => {
+            utxs.filter(utx => utx.type === 4)
+                .forEach(utx => {
+                    if (!this.utxPool.has(utx.signature)) {
+                        console.log(`New utx of type 4 with sig: ${utx.signature}`);
+                        this.utxData.next(utx);
+                        this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
+                    } else {
+                        const temp = this.utxPool.get(utx.signature);
+                        temp.timesAbsent -= 1;
+                        this.utxPool.set(utx.signature, temp);
+                    }
+                });
+
+            for (let key of this.utxPool.keys()) {
+                let val = this.utxPool.get(key);
+                val.timesAbsent += 1;
+                if (val.timesAbsent > config.utxAbsent) this.utxPool.delete(key);
+            }
+        },
+
+        error: (err: any) => {
+            console.log('Utx polling error. Recreating polling subscription');
+            this.createNewUtxSubscription(this.utxObserver);
+        },
+
+        complete: ()=>{}
+    };
+
     private blockObserver: Observer<any> = {
         closed: false,
 
@@ -153,22 +163,10 @@ export class NodeProxy implements INodeProxy {
         },
 
         error: (err: any) => {
-            console.log(err);
-            this.subscriptions.get('block').unsubscribe();
-            this.subscriptions.set('block', interval(this.pollInterval)
-                .pipe(
-                    concatMap(() => {
-                        return fromPromise(this._getBlockHeightsToSync()).pipe(
-                            concatAll(),
-                            concatMap(h => this.nodeApi.getBlockAt(h))
-                        )
-                    }),
-                )
-                .subscribe(this.blockObserver)
-            )
+            console.log('Block polling error. Recreating polling subscription');
+            this.createNewBlockSubscription(this.blockObserver);
         },
 
-        complete: () => {
-        }
-    }
+        complete: () => {}
+    };
 }
