@@ -21,6 +21,11 @@ knex.schema
         table.integer('height').notNullable();
         table.string('sig').notNullable();
     })
+    .dropTableIfExists('block')
+    .createTable('block', table => {
+        table.integer('height').notNullable();
+        table.
+    })
     .then(async () => {
         const {currentHeight, currentSig} = await nodeApi.getHeightAndSig();
         await knex('last_height_sig').insert({height: currentHeight, sig: currentSig});

@@ -1,14 +1,7 @@
 import {Observable} from "rxjs/internal/Observable";
 import {
-    map,
     concatMap,
-    publish,
-    share,
     filter,
-    tap,
-    flatMap,
-    mergeMap,
-    mergeAll,
     concatAll,
     exhaustMap
 } from "rxjs/operators";
@@ -115,7 +108,7 @@ export class NodeProxy implements INodeProxy {
         console.log(`Processing block at ${block.height} with signature ${block.signature}`);
         //todo: check if block is duplicate
         const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
-        if (lastSig === block.signature){
+        if (lastSig === block.signature) {
             console.log(`Duplicate  ${block.signature}`);
             return
         }

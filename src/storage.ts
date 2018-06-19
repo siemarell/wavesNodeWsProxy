@@ -40,7 +40,6 @@ export const db: IStorage = {
     },
 
     async setLastHeightAndSig(height: number, sig: string){
-        await asleep(1000);
         await knex('last_height_sig').update({height: height, sig: sig});
     },
 
