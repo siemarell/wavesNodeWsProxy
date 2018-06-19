@@ -118,11 +118,21 @@ export class NodeProxy implements INodeProxy {
 
     private processBlock = async (block: any): Promise<any> => {
         console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+        const blockInStorage = await this.storage.getBlockAt(block.height);
+        if (blockInStorage && blockInStorage.signature === block.signature){
+            /*
+              Quite often there are blocks, which have already been proceed. Maybe it is related to node caching
+              requests or inconsistency in getting last block signature via node REST API
+             */
+            console.log(`Duplicate  ${block.signature}`);
+            return
+        }
         await this.storage.saveBlock(block);
         return block;
     };
 
     private _getBlockHeightsToSync = async () => {
+        //ToDo: What if height, returned from node, is smaller than height, returned from storage
         let blocksToSync: Array<number> = [];
 
         const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
@@ -212,16 +222,20 @@ export class NodeProxy implements INodeProxy {
     getHeightToSyncFrom = async (lastHeight: number): Promise<number> => {
         const loop = async (height: number): Promise<number> => {
             const blockInStorage = await this.storage.getBlockAt(height);
-            if (!blockInStorage) return height;
+            if (!blockInStorage) return height; //reached bottom
             try {
-                await this.nodeApi.getBlockBy(blockInStorage.signature);
-                return height
+                const blockInChain = await this.nodeApi.getBlockHeaderAt(blockInStorage.height);
+                //ToDo: What if we get network exception?
+                if (blockInChain.signature === blockInStorage.signature) {
+                    return height
+                }
+                else return await loop(height - 1)
             } catch (e) {
                 return await loop(height - 1)
             }
         };
 
-        return await loop(lastHeight - 1);
+        return await loop(lastHeight);
     }
 }
 

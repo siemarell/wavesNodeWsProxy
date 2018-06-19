@@ -44,6 +44,11 @@ describe('Node API', () => {
         assert(result.signature === '2gqi8WwkSbCUQSL7SPWr8jxhMXWKApQVP57ykxELr5ghetHp2MABCPyy3EdGNF15QKthdFzFsjj2EcGikf1QK3P6');
     });
 
+    it('Should get block header at specific height', async () => {
+        const result = await nodeApi.getBlockHeaderAt(190);
+        assert(result.signature === '2gqi8WwkSbCUQSL7SPWr8jxhMXWKApQVP57ykxELr5ghetHp2MABCPyy3EdGNF15QKthdFzFsjj2EcGikf1QK3P6');
+    });
+
     it('Should get block by signature', async () => {
         const result = await nodeApi.getBlockBy('2gqi8WwkSbCUQSL7SPWr8jxhMXWKApQVP57ykxELr5ghetHp2MABCPyy3EdGNF15QKthdFzFsjj2EcGikf1QK3P6');
         assert(result.height === 190);
