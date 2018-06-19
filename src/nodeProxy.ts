@@ -1,17 +1,23 @@
 import {Observable} from "rxjs/internal/Observable";
-import {map, concatMap, publish, share, filter, tap, flatMap, mergeMap, mergeAll, concatAll} from "rxjs/operators";
+import {
+    map,
+    concatMap,
+    publish,
+    share,
+    filter,
+    tap,
+    flatMap,
+    mergeMap,
+    mergeAll,
+    concatAll,
+    exhaustMap
+} from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
-import * as request from 'request-promise';
 import {Subscription} from "rxjs/internal/Subscription";
 import {INodeApi, NodeApi} from "./nodeApi";
 import {config} from "./config";
 import {db} from './storage'
-import {async} from "rxjs/internal/scheduler/async";
-import {from} from "rxjs/internal/observable/from";
-import {fromArray} from "rxjs/internal/observable/fromArray";
-import {zip} from "rxjs/internal/observable/zip";
 import {fromPromise} from "rxjs/internal-compatibility";
-import {concat} from "rxjs/internal/observable/concat";
 
 
 export interface INodeProxy {
@@ -90,18 +96,32 @@ export class NodeProxy implements INodeProxy {
 
     private createNewBlockSubscription(observer: Observer<any>) {
         const oldSub = this.subscriptions.get('block');
-        if (oldSub) oldSub.unsubscribe()
+        if (oldSub) oldSub.unsubscribe();
         const newSub = interval(this.pollInterval)
             .pipe(
-                concatMap(() => {
+                exhaustMap(() => {
                     return fromPromise(this._getBlockHeightsToSync()).pipe(
                         concatAll(),
-                        concatMap(h => this.nodeApi.getBlockAt(h))
+                        concatMap(h => this.nodeApi.getBlockAt(h)),
+                        concatMap(block => this.processBlock(block)),
+                        filter(block => block)
                     )
-                })
+                }),
             ).subscribe(observer);
         this.subscriptions.set('block', newSub)
     }
+
+    private processBlock = async (block: any): Promise<any> => {
+        console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+        //todo: check if block is duplicate
+        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
+        if (lastSig === block.signature){
+            console.log(`Duplicate  ${block.signature}`);
+            return
+        }
+        await this.storage.setLastHeightAndSig(block.height, block.signature);
+        return block;
+    };
 
     private createNewUtxSubscription(observer: Observer<any>) {
         const oldSub = this.subscriptions.get('utx');
@@ -121,7 +141,7 @@ export class NodeProxy implements INodeProxy {
         closed: false,
 
         next: (utxs: Array<any>): void => {
-            utxs.filter(utx => {return utx.type === 4})
+            utxs.filter(utx => utx.type === 4)
                 .forEach(utx => {
                     if (!this.utxPool.has(utx.signature)) {
                         console.log(`New utx of type 4 with signature: ${utx.signature}`);
@@ -146,23 +166,21 @@ export class NodeProxy implements INodeProxy {
             this.createNewUtxSubscription(this.utxObserver);
         },
 
-        complete: ()=>{}
+        complete: () => {
+        }
     };
 
     private blockObserver: Observer<any> = {
         closed: false,
 
-        next: async (block: any): Promise<void> => {
-            console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+        next: (block: any) => {
             this.blockData.next(block);
             block.transactions.forEach((tx: any) => {
                 if (!this.txPool.has(tx.signature)) {
                     this.txPool.set(tx.signature, tx);
                     this.txData.next(tx);
                 }
-
-            });
-            await this.storage.setLastHeightAndSig(block.height, block.signature);
+            })
         },
 
         error: (err: any) => {
@@ -170,6 +188,7 @@ export class NodeProxy implements INodeProxy {
             this.createNewBlockSubscription(this.blockObserver);
         },
 
-        complete: () => {}
+        complete: () => {
+        }
     };
 }
