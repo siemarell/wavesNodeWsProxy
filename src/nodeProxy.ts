@@ -49,7 +49,9 @@ export class NodeProxy implements INodeProxy {
             blocksToSync = Array.from(Array(currentHeight - lastHeight + 1).keys())
                 .map(x => x + lastHeight)
         }
-        console.log(`Current height: ${currentHeight}\n Blocks to sync: ${blocksToSync}`);
+        console.log(
+            `Current height: ${currentHeight}, Blocks to sync: ${blocksToSync}`
+        );
         return blocksToSync;
     };
 
@@ -119,10 +121,10 @@ export class NodeProxy implements INodeProxy {
         closed: false,
 
         next: (utxs: Array<any>): void => {
-            utxs.filter(utx => utx.type === 4)
+            utxs.filter(utx => {return utx.type === 4})
                 .forEach(utx => {
                     if (!this.utxPool.has(utx.signature)) {
-                        console.log(`New utx of type 4 with sig: ${utx.signature}`);
+                        console.log(`New utx of type 4 with signature: ${utx.signature}`);
                         this.utxData.next(utx);
                         this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
                     } else {
@@ -152,10 +154,11 @@ export class NodeProxy implements INodeProxy {
 
         next: async (block: any): Promise<void> => {
             console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+            this.blockData.next(block);
             block.transactions.forEach((tx: any) => {
                 if (!this.txPool.has(tx.signature)) {
                     this.txPool.set(tx.signature, tx);
-                    this.utxData.next(tx);
+                    this.txData.next(tx);
                 }
 
             });
