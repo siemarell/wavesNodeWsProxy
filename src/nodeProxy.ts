@@ -135,8 +135,11 @@ export class NodeProxy implements INodeProxy {
         //ToDo: What if height, returned from node, is smaller than height, returned from storage
         let blocksToSync: Array<number> = [];
 
-        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
         const {currentHeight, currentSig} = await this.nodeApi.getHeightAndSig();
+        const {lastHeight, lastSig} = await this.storage.getlastHeightAndSig();
+
+        //Todo: implement logic on empty storage or when height diff is too big
+        if (!(lastHeight || lastSig)) return [currentHeight];
 
         if (currentSig !== lastSig) {
             const heightToSync = await this.getHeightToSyncFrom(lastHeight);
@@ -211,6 +214,7 @@ export class NodeProxy implements INodeProxy {
         },
 
         error: (err: any) => {
+            console.log(err)
             console.log('Block polling error. Recreating polling subscription');
             this.createNewBlockSubscription(this.blockObserver);
         },

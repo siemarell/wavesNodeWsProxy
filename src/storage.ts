@@ -1,5 +1,4 @@
-import * as Knex from "knex"
-import {asleep} from "./utils";
+import * as Knex from "knex";
 
 let knex = Knex({
     dialect: 'sqlite3',
@@ -36,6 +35,7 @@ export const db: IStorage = {
 
     async getlastHeightAndSig(): Promise<{ lastHeight: number, lastSig: string }> {
         const result = await knex('block').orderBy('height','desc').limit(1);
+        if (result.length === 0) return {lastHeight: undefined, lastSig: undefined};
         return {lastHeight: result[0].height, lastSig: result[0].signature}
     },
 
