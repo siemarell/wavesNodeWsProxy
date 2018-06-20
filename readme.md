@@ -8,9 +8,9 @@
 
 ## Run
 
-####Port:
+#### Port:
 Container exposes port 40510
 
 #### Environment varialbles:
 1. POLL_INTERVAL - default=3000
-2. NODE_URL - default =http://1.mainnet.wavesnodes.com 
+2. NODE_URL - default=http://1.mainnet.wavesnodes.com 
