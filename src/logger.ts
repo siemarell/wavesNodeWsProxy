@@ -3,14 +3,15 @@ import {createLogger, transports, format} from "winston";
 const {combine, timestamp, label, prettyPrint, printf, colorize, json} = format;
 
 const consoleFormat = printf((info) => {
-    return `${info.timestamp} ${info.level}: ${info.message}`
+    return `${info.timestamp} ${info.level}: ${JSON.stringify(info.message)}`
 });
+
 export const logger = createLogger({
     level: 'info',
     transports: [
         new transports.File({
             filename: 'app.log',
-            format: combine(timestamp(), json())
+            format: combine(timestamp())
         }),
         new transports.Console({
             format: combine(
