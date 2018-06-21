@@ -14,6 +14,7 @@ Container exposes port 40510
 #### Environment varialbles:
 1. POLL_INTERVAL - default=3000
 2. NODE_URL - default=http://1.mainnet.wavesnodes.com 
+3. BLOCK_HISTORY - number blocks to persist in storage. Default=50
 
 #### Client
 Websocket api use /api endpoint. You can set sessionId as query string param.

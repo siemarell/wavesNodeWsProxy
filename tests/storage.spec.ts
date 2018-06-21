@@ -30,6 +30,18 @@ describe('Storage', () => {
         assert(result === undefined)
     });
 
+    it('Should delete blocks below height', async () => {
+        await db.saveBlock({height:10,signature: "asd", data:{}});
+        await db.saveBlock({height:11,signature: "asd", data:{}});
+        await db.saveBlock({height:15,signature: "asd", data:{}});
+        await db.deleteBlocksBelow(14);
+        const deleted = await db.getBlockAt(10);
+        const notDeleted = await db.getBlockAt(15);
+        assert(deleted === undefined)
+        assert(notDeleted !== undefined)
+        await db.deleteBlockAt(15)
+    });
+
     it('Should save and return subscriptions', async ()=>{
         await db.saveSubscription('123', 'first');
         await db.saveSubscription('123', 'second');

@@ -3,7 +3,7 @@ import {
     concatMap,
     filter,
     concatAll,
-    exhaustMap, distinct, mergeAll
+    exhaustMap, distinct, mergeAll, tap
 } from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
 import {Subscription} from "rxjs/internal/Subscription";
@@ -23,7 +23,7 @@ export interface INodeProxy {
 
 export class NodeProxy implements INodeProxy {
     private utxPool: Map<string, { timesAbsent: number, utx: {} }> = new Map();
-    private txPool: Map<string, any> = new Map<string, any>();
+    private txPool: Map<string, { height: number, tx: {}}> = new Map<string, { height: number, tx: {}}>();
     private subscriptions: Map<string, Subscription> = new Map();
     private storage = db;
 
@@ -35,10 +35,29 @@ export class NodeProxy implements INodeProxy {
     constructor(private nodeApi: INodeApi, private pollInterval: number) {
         this.createNewUtxSubscription(this.utxObserver);
         this.createNewBlockSubscription(this.blockObserver);
+        // Subscribe to block height event. Delete old blocks from storage and txs from memory
+        this.heightData.pipe(filter(h => h % config.blockHistory === 0))
+            .subscribe(h => {
+                for (let txSig of this.txPool.keys()){
+                    if (this.txPool.get(txSig).height < h - config.blockHistory){
+                        this.txPool.delete(txSig)
+                    }
+                }
+                this.storage.deleteBlocksBelow(h - config.blockHistory).then();
+            })
     }
 
     private async getTxsAtHeight(h: number) {
-        const block = await this.storage.getBlockAt(h);
+        let block = await this.storage.getBlockAt(h);
+
+        if (!block){
+            try {
+                block = await this.nodeApi.getBlockAt(h);
+            }catch (e) {
+                console.log(`Failed to get block at height ${h}`)
+            }
+        }
+
         let result = [];
         if (block) {
             const txs = JSON.parse(block.data).transactions;
@@ -56,7 +75,7 @@ export class NodeProxy implements INodeProxy {
                 return this.blockData.asObservable();
             case 'tx':
                 if (args[1] === 'confirmed' && parseInt(args[2])) {
-                    const confirmations = parseInt(args[2], 10)
+                    const confirmations = parseInt(args[2], 10);
                     return this.heightData.pipe(
                         distinct(),
                         concatMap(h => this.getTxsAtHeight(h - confirmations)),
@@ -69,7 +88,7 @@ export class NodeProxy implements INodeProxy {
                     throw new Error('Invalid channel')
                 } else {
                     if (args[2] === 'confirmed' && parseInt(args[3])) {
-                        const confirmations = parseInt(args[3], 10)
+                        const confirmations = parseInt(args[3], 10);
                         return this.heightData.pipe(
                             distinct(),
                             concatMap(h => this.getTxsAtHeight(h - confirmations)),
@@ -207,14 +226,14 @@ export class NodeProxy implements INodeProxy {
             this.heightData.next(block.height);
             block.transactions.forEach((tx: any) => {
                 if (!this.txPool.has(tx.signature)) {
-                    this.txPool.set(tx.signature, tx);
+                    this.txPool.set(tx.signature, {height: block.height,tx: tx});
                     this.txData.next(tx);
                 }
             })
         },
 
         error: (err: any) => {
-            console.log(err)
+            console.log(err);
             console.log('Block polling error. Recreating polling subscription');
             this.createNewBlockSubscription(this.blockObserver);
         },

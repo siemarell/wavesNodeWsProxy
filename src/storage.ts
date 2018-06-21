@@ -61,6 +61,10 @@ export const db: IStorage = {
         await knex('block').where({height:height}).del()
     },
 
+    async deleteBlocksBelow(height) {
+        await knex('block').where('height', '<', height).del()
+    },
+
     destroy() {
         knex.destroy()
     }
@@ -82,6 +86,8 @@ export interface IStorage {
     saveBlock(block: any): Promise<void>;
 
     deleteBlockAt(height: number): Promise<void>;
+
+    deleteBlocksBelow(height: number): Promise<void>;
 
     destroy(): void;
 }
