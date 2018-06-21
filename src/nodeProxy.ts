@@ -247,17 +247,17 @@ export class NodeProxy implements INodeProxy {
     getHeightToSyncFrom = async (lastHeight: number): Promise<number> => {
         const loop = async (height: number): Promise<number> => {
             const blockInStorage = await this.storage.getBlockAt(height);
-            if (!blockInStorage) return height; //reached bottom
-            try {
-                const blockInChain = await this.nodeApi.getBlockHeaderAt(blockInStorage.height);
-                //ToDo: What if we get network exception?
-                if (blockInChain.signature === blockInStorage.signature) {
-                    return height
-                }
-                else return await loop(height - 1)
-            } catch (e) {
-                return await loop(height - 1)
+
+            if (!blockInStorage) {
+                return height; //reached bottom
             }
+
+            const blockInChain = await this.nodeApi.getBlockHeaderAt(blockInStorage.height);
+
+            if (blockInChain.signature === blockInStorage.signature) {
+                return height
+            }
+            else return await loop(height - 1)
         };
 
         return await loop(lastHeight);
