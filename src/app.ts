@@ -4,12 +4,13 @@ import {WSClientHandler} from "./wsClientHandler";
 import {NodeProxy} from './nodeProxy';
 import {config} from "./config";
 import {NodeApi} from './nodeApi'
+import {logger} from './logger';
 
 import {existsSync} from 'fs'
 
 if (!existsSync('./storage.db')){
-    console.log('No storage found. Init empty storage');
-    require('./storage.init').init()
+    logger.info('No storage found. Init empty storage');
+    require('./storageInit').init()
 }
 
 const wss = new WebSocket.Server({port: config.appPort});
@@ -25,7 +26,7 @@ wss.on('connection', async (ws: WebSocket, req) =>{
     }else{
         const handler = new WSClientHandler(ws, nodeProxy, <string>sessionId);
         await handler.init();
-        console.log(`Client connected. SessionId: ${handler.id}`);
+        logger.info(`Client connected. SessionId: ${handler.id}`);
         ws.on('close', () => handler.destroy());
     }
 });

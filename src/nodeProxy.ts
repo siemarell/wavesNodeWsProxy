@@ -3,7 +3,7 @@ import {
     concatMap,
     filter,
     concatAll,
-    exhaustMap, distinct, mergeAll, tap
+    exhaustMap, distinct
 } from "rxjs/operators";
 import {interval, Observer, Subject, merge} from "rxjs";
 import {Subscription} from "rxjs/internal/Subscription";
@@ -12,7 +12,7 @@ import {config} from "./config";
 import {db} from './storage'
 import {fromPromise} from "rxjs/internal-compatibility";
 import {filterByAddress} from "./utils";
-
+import {logger} from './logger'
 
 export interface INodeProxy {
     getChannel(channel: string): Observable<any>;
@@ -23,7 +23,7 @@ export interface INodeProxy {
 
 export class NodeProxy implements INodeProxy {
     private utxPool: Map<string, { timesAbsent: number, utx: {} }> = new Map();
-    private txPool: Map<string, { height: number, tx: {}}> = new Map<string, { height: number, tx: {}}>();
+    private txPool: Map<string, { height: number, tx: {} }> = new Map<string, { height: number, tx: {} }>();
     private subscriptions: Map<string, Subscription> = new Map();
     private storage = db;
 
@@ -38,8 +38,8 @@ export class NodeProxy implements INodeProxy {
         // Subscribe to block height event. Delete old blocks from storage and txs from memory
         this.heightData.pipe(filter(h => h % config.blockHistory === 0))
             .subscribe(h => {
-                for (let txSig of this.txPool.keys()){
-                    if (this.txPool.get(txSig).height < h - config.blockHistory){
+                for (let txSig of this.txPool.keys()) {
+                    if (this.txPool.get(txSig).height < h - config.blockHistory) {
                         this.txPool.delete(txSig)
                     }
                 }
@@ -50,11 +50,12 @@ export class NodeProxy implements INodeProxy {
     private async getTxsAtHeight(h: number) {
         let block = await this.storage.getBlockAt(h);
 
-        if (!block){
+        if (!block) {
             try {
                 block = await this.nodeApi.getBlockAt(h);
-            }catch (e) {
-                console.log(`Failed to get block at height ${h}`)
+            } catch (e) {
+                logger.info(`Failed to get block at height ${h}`);
+                logger.error(e)
             }
         }
 
@@ -136,14 +137,14 @@ export class NodeProxy implements INodeProxy {
     }
 
     private processBlock = async (block: any): Promise<any> => {
-        console.log(`Processing block at ${block.height} with signature ${block.signature}`);
+        logger.info(`Processing block at ${block.height} with signature ${block.signature}`);
         const blockInStorage = await this.storage.getBlockAt(block.height);
-        if (blockInStorage && blockInStorage.signature === block.signature){
+        if (blockInStorage && blockInStorage.signature === block.signature) {
             /*
               Quite often there are blocks, which have already been proceed. Maybe it is related to node caching
               requests or inconsistency in getting last block signature via node REST API
              */
-            console.log(`Duplicate  ${block.signature}`);
+            logger.info(`Duplicate  ${block.signature}`);
             return
         }
         await this.storage.saveBlock(block);
@@ -165,7 +166,7 @@ export class NodeProxy implements INodeProxy {
             blocksToSync = Array.from(Array(currentHeight - heightToSync).keys())
                 .map(x => x + heightToSync + 1)
         }
-        console.log(
+        logger.info(
             `Current height: ${currentHeight}, Blocks to sync: ${blocksToSync}`
         );
         return blocksToSync;
@@ -192,7 +193,7 @@ export class NodeProxy implements INodeProxy {
             utxs.filter(utx => utx.type === 4)
                 .forEach(utx => {
                     if (!this.utxPool.has(utx.signature)) {
-                        console.log(`New utx of type 4 with signature: ${utx.signature}`);
+                        logger.info(`New utx of type 4 with signature: ${utx.signature}`);
                         this.utxData.next(utx);
                         this.utxPool.set(utx.signature, {timesAbsent: -1, utx})
                     } else {
@@ -210,7 +211,8 @@ export class NodeProxy implements INodeProxy {
         },
 
         error: (err: any) => {
-            console.log('Utx polling error. Recreating polling subscription');
+            logger.info('Utx polling error. Recreating polling subscription');
+            logger.error(err);
             this.createNewUtxSubscription(this.utxObserver);
         },
 
@@ -226,15 +228,15 @@ export class NodeProxy implements INodeProxy {
             this.heightData.next(block.height);
             block.transactions.forEach((tx: any) => {
                 if (!this.txPool.has(tx.signature)) {
-                    this.txPool.set(tx.signature, {height: block.height,tx: tx});
+                    this.txPool.set(tx.signature, {height: block.height, tx: tx});
                     this.txData.next(tx);
                 }
             })
         },
 
         error: (err: any) => {
-            console.log(err);
-            console.log('Block polling error. Recreating polling subscription');
+            logger.error(err);
+            logger.info('Block polling error. Recreating polling subscription');
             this.createNewBlockSubscription(this.blockObserver);
         },
 

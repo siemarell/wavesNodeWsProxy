@@ -1,4 +1,5 @@
 import * as Knex from "knex"
+import {logger} from './logger'
 
 let knex = Knex({
     dialect: 'sqlite3',
@@ -21,10 +22,10 @@ export const init = () => {
             table.json('data')
         })
         .then(async () => {
-            console.log('Storage init ok');
+            logger.info('Storage init ok');
             knex.destroy()
         }, error => {
-            console.log(error);
+            logger.info(error);
             knex.destroy()
         });
 };
