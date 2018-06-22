@@ -5,24 +5,20 @@ import uuid = require("uuid");
 import {INodeProxy} from './nodeProxy';
 import {Observer} from "rxjs/internal/types";
 import {IStorage, db} from './storage'
+import {logger} from "./logger";
 
 export class WSClientHandler {
     get id(): string {
         return this._id;
     }
+
     private subscriptions: Map<string, Subscription> = new Map<string, Subscription>();
     private readonly _id: string;
     private storage: IStorage = db;
 
     private parser: ICommandParser = commandParser;
 
-    private observer: Observer<string> = {
-        next: (value: string) => { this.sendMessage(value)},
-        error: (err: any) => {},
-        complete: () => {}
-    };
-
-    constructor(private ws:WebSocket, private nodeProxy: INodeProxy, id?: string){
+    constructor(private ws: WebSocket, private nodeProxy: INodeProxy, id?: string) {
         this._id = id || uuid.v4();
         this.sendMessage({connection: "ok", id: this.id});
         this.listenForCommands();
@@ -31,8 +27,8 @@ export class WSClientHandler {
 
     async init() {
         const clientChannels = await this.storage.getAllSubscriptions(this._id);
-        clientChannels.forEach((channel:string) => {
-            const sub = this.nodeProxy.getChannel(channel).subscribe(this.observer);
+        clientChannels.forEach((channel: string) => {
+            const sub = this.nodeProxy.getChannel(channel).subscribe(this.getChannelObserver(channel));
             this.subscriptions.set(channel, sub)
         })
     }
@@ -40,11 +36,11 @@ export class WSClientHandler {
     private async addSubscription(channel: string) {
         try {
             const sub = this.nodeProxy.getChannel(channel)
-                .subscribe(this.observer);
+                .subscribe(this.getChannelObserver(channel));
             this.subscriptions.set(channel, sub);
             await this.storage.saveSubscription(this._id, channel);
             this.sendMessage({status: "ok", op: `subscribe ${channel}`})
-        }catch (e) {
+        } catch (e) {
             this.sendMessage({msg: `Bad channel: ${channel}`})
         }
 
@@ -55,25 +51,25 @@ export class WSClientHandler {
         if (sub != undefined) sub.unsubscribe();
         this.subscriptions.delete(channel);
         await this.storage.deleteSubscription(this._id, channel);
+        this.sendMessage({status: "ok", op: `unsubscribe ${channel}`})
     }
 
     private sendMessage(obj: Object): void {
         this.ws.send(JSON.stringify(obj));
     }
 
-    private listenForCommands(){
+    private listenForCommands() {
         this.ws.on('message', async (msg: string) => {
             const command = this.parser.parseCommand(msg);
-            switch (command.type){
+            switch (command.type) {
                 case CommandType.UNSUB:
-                    if (command.channel === 'all'){
-                        for (let key of this.subscriptions.keys()){
+                    if (command.channel === 'all') {
+                        for (let key of this.subscriptions.keys()) {
                             await this.removeSubscription(key)
                         }
-                    }else {
+                    } else {
                         await this.removeSubscription(command.channel);
                     }
-                    this.sendMessage({status: "ok", op: `unsubscribe ${command.channel}`});
                     break;
                 case CommandType.SUB:
                     await this.addSubscription(command.channel);
@@ -82,14 +78,30 @@ export class WSClientHandler {
                     this.sendMessage({"op": "pong"});
                     break;
                 case CommandType.BAD:
-                    this.sendMessage({"msg": "Bad Command", cmd: command.msg})
+                    this.sendMessage({"msg": "Bad Command", cmd: command.msg});
                     break;
             }
         });
     }
 
-    destroy(){
-        for (let sub of this.subscriptions.values()){
+    private getChannelObserver(channel: string): Observer<string> {
+        return {
+            next: (value: string) => {
+                this.sendMessage({
+                    op: `subscribe ${channel}`,
+                    msg: value
+                })
+            },
+            error: (err: any) => {
+                logger.error(err)
+            },
+            complete: () => {
+            }
+        }
+    };
+
+    destroy() {
+        for (let sub of this.subscriptions.values()) {
             sub.unsubscribe()
         }
     }

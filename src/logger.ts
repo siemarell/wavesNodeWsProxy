@@ -11,7 +11,7 @@ export const logger = createLogger({
     transports: [
         new transports.File({
             filename: 'app.log',
-            format: combine(timestamp())
+            format: combine(timestamp(), json())
         }),
         new transports.Console({
             format: combine(
