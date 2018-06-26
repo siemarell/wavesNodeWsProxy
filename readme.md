@@ -1,10 +1,12 @@
+## How it works
+
+![Image of howitworks](./howitworks.png)
+
 ## Build
 
 1. Clone repository
 2. cd into folder
-3. npm install
-4. tsc
-5. docker build . -t wsservice
+3. docker build . -t wsservice
 
 ## Run
 
